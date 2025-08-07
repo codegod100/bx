@@ -50,37 +50,39 @@ class HelloWorldPage(Page):
             logger.error(f"Error removing item at index {index}: {str(e)}")
     
     def populate(self):
-        t.h1("Hello, World!")
+        t.h1("Hello, World!", class_name="text-3xl font-bold mb-6 text-center text-[#cba6f7]")
         
         # Counter section
-        with t.div(style="margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px;"):
-            t.h2("Counter")
-            t.p(f"Count: {self.state['count']}")
-            t.button("Increment", on_click=self.handle_increment)
+        with t.div(class_name="m-4 p-4 rounded-lg bg-[#313244] border border-[#585b70]"):
+            t.h2("Counter", class_name="text-xl font-semibold mb-3 text-[#89b4fa]")
+            t.p(f"Count: {self.state['count']}", class_name="mb-3 text-[#a6e3a1]")
+            t.button("Increment", on_click=self.handle_increment, class_name="px-4 py-2 bg-[#89b4fa] hover:bg-[#74c7ec] text-[#11111b] font-medium rounded-md transition-colors")
         
         # Text input section
-        with t.div(style="margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px;"):
-            t.h2("Text Input")
-            t.input(
-                placeholder="Enter some text...",
-                value=self.state["input_text"],
-                on_input=self.handle_input_change,
-                style="padding: 8px; margin-right: 10px; border: 1px solid #999; border-radius: 3px;"
-            )
-            t.button("Add Item", on_click=self.handle_add_item)
+        with t.div(class_name="m-4 p-4 rounded-lg bg-[#313244] border border-[#585b70]"):
+            t.h2("Text Input", class_name="text-xl font-semibold mb-3 text-[#89b4fa]")
+            # Using flexbox for responsive layout with proper spacing on mobile
+            with t.div(class_name="flex flex-col sm:flex-row sm:items-center gap-2"):
+                t.input(
+                    placeholder="Enter some text...",
+                    value=self.state["input_text"],
+                    on_input=self.handle_input_change,
+                    class_name="flex-grow px-3 py-2 border border-[#6c7086] rounded-md bg-[#45475a] text-[#cdd6f4] focus:outline-none focus:ring-2 focus:ring-[#89dceb]"
+                )
+                t.button("Add Item", on_click=self.handle_add_item, class_name="px-4 py-2 bg-[#a6e3a1] hover:bg-[#94e2d5] text-[#11111b] font-medium rounded-md transition-colors whitespace-nowrap")
         
         # List section
-        with t.div(style="margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px;"):
-            t.h2("Item List")
-            with t.ul():
+        with t.div(class_name="m-4 p-4 rounded-lg bg-[#313244] border border-[#585b70]"):
+            t.h2("Item List", class_name="text-xl font-semibold mb-3 text-[#89b4fa]")
+            with t.ul(class_name="list-none p-0"):
                 for index, item in enumerate(self.state["items"]):
-                    with t.li():
-                        t.span(item)
+                    with t.li(class_name="flex justify-between items-center py-2 border-b border-[#45475a]"):
+                        t.span(item, class_name="text-[#cdd6f4]")
                         # Use index-based removal to avoid closure issues
                         t.button(
                             "Remove",
                             on_click=lambda e, idx=index: self.handle_remove_item(e, idx),
-                            style="margin-left: 10px; padding: 3px 8px; background-color: #f44336; color: white; border: none; border-radius: 3px; cursor: pointer;"
+                            class_name="px-3 py-1 bg-[#f38ba8] hover:bg-[#eba0ac] text-[#11111b] font-medium rounded-md transition-colors"
                         )
 
 
