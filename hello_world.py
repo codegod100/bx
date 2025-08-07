@@ -24,6 +24,10 @@ class HelloWorldPage(Page):
     def handle_input_change(self, event):
         self.state["input_text"] = event.target.value
     
+    def handle_input_keydown(self, event):
+        if event.key == "Enter":
+            self.handle_add_item(event)
+    
     def handle_add_item(self, event):
         item_text = self.state["input_text"].strip()
         if item_text:
@@ -67,6 +71,7 @@ class HelloWorldPage(Page):
                     placeholder="Enter some text...",
                     value=self.state["input_text"],
                     on_input=self.handle_input_change,
+                    on_keydown=self.handle_input_keydown,
                     class_name="flex-grow px-3 py-2 border border-[#6c7086] rounded-md bg-[#45475a] text-[#cdd6f4] focus:outline-none focus:ring-2 focus:ring-[#89dceb]"
                 )
                 t.button("Add Item", on_click=self.handle_add_item, class_name="px-4 py-2 bg-[#a6e3a1] hover:bg-[#94e2d5] text-[#11111b] font-medium rounded-md transition-colors whitespace-nowrap")
