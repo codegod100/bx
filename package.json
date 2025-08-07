@@ -1,0 +1,29 @@
+{
+  "name": "bx",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build:css": "tailwindcss -c tailwind.config.js -i ./styles.css -o ./dist/styles.css --minify",
+    "dev:css": "tailwindcss -c tailwind.config.js -i ./styles.css -o ./dist/styles.css --watch",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/codegod100/bx.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/codegod100/bx/issues"
+  },
+  "homepage": "https://github.com/codegod100/bx#readme",
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.11",
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.11"
+  }
+}
