@@ -29,13 +29,13 @@ class HelloWorldPage(Page):
         if item_text:
             self.state["items"].append(item_text)
             self.state["input_text"] = ""
-            logger.debug(f"Item '{item_text}' added successfully. New list: {self.state['items']}")
+            print(f"Item '{item_text}' added successfully. New list: {self.state['items']}")
         else:
-            logger.debug("Attempted to add empty item")
+            print("Attempted to add empty item")
     
     def handle_remove_item(self, event, index):
-        logger.debug(f"Attempting to remove item at index: {index}")
-        logger.debug(f"Current items list: {self.state['items']}")
+        print(f"Attempting to remove item at index: {index}")
+        print(f"Current items list: {self.state['items']}")
         try:
             if 0 <= index < len(self.state["items"]):
                 # Create a new list without the item at the specified index
@@ -43,9 +43,9 @@ class HelloWorldPage(Page):
                 current_items = self.state["items"]
                 new_items = current_items[:index] + current_items[index+1:]
                 self.state["items"] = new_items
-                logger.debug(f"Item at index {index} removed successfully. New list: {self.state['items']}")
+                print(f"Item at index {index} removed successfully. New list: {self.state['items']}")
             else:
-                logger.debug(f"Index {index} out of range. Current list: {self.state['items']}")
+                print(f"Index {index} out of range. Current list: {self.state['items']}")
         except Exception as e:
             logger.error(f"Error removing item at index {index}: {str(e)}")
     
@@ -68,7 +68,6 @@ class HelloWorldPage(Page):
                 style="padding: 8px; margin-right: 10px; border: 1px solid #999; border-radius: 3px;"
             )
             t.button("Add Item", on_click=self.handle_add_item)
-            t.p(f"You entered: {self.state['input_text']}")
         
         # List section
         with t.div(style="margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px;"):

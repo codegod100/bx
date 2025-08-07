@@ -1,6 +1,6 @@
 {
     "name": "PuePy Tutorial",
-    "debug": true,
+    "debug": false,
     "files": {},
     "js_modules": {
         "main": {
