@@ -16,24 +16,51 @@ class CustomErrorPage(Page):
         t.h1("Application Error", class_name="text-3xl font-bold mb-6 text-center text-red-500")
         if self.error:
             t.p(f"Error: {str(self.error)}", class_name="mb-4")
-            t.pre(str(self.error), class_name="bg-gray-100 p-4 rounded")
+            # Try to get more detailed error information
+            try:
+                error_type = type(self.error).__name__
+                t.p(f"Error type: {error_type}", class_name="mb-4")
+            except:
+                pass
+                
+            # Try to show traceback if available
+            try:
+                import traceback
+                tb_str = traceback.format_exception(type(self.error), self.error, self.error.__traceback__)
+                t.pre("".join(tb_str), class_name="bg-gray-100 p-4 rounded text-xs overflow-auto")
+            except:
+                try:
+                    t.pre(str(self.error), class_name="bg-gray-100 p-4 rounded")
+                except:
+                    pass
         else:
             t.p("An unknown error occurred.", class_name="mb-4")
             t.p("Please check the browser console for more details.", class_name="mb-4")
+            # Show current URL and other context
+            try:
+                from js import window
+                t.p(f"Current URL: {window.location.href}", class_name="mb-4")
+                t.p(f"Base path: {base_path}", class_name="mb-4")
+            except:
+                pass
 
 # Determine base path based on environment
-# Check if we're on GitHub Pages (or similar platform with subpath deployment)
+# Simple approach: check if we're on GitHub Pages
 base_path = ""
 try:
-    # If the current path contains a subpath that's not just "/", we might be in a subfolder deployment
-    # This works for GitHub Pages where repos are served at username.github.io/repo-name
-    if window.location.pathname.count("/") > 1:
-        # Extract the first path segment as the base path
-        path_parts = window.location.pathname.split("/")
-        if len(path_parts) > 1 and path_parts[1]:
-            base_path = "/" + path_parts[1]
-except:
-    pass
+    # For GitHub Pages: username.github.io/repo-name/
+    # The repository name becomes the base path
+    if "github.io" in window.location.hostname and window.location.hostname != "github.io":
+        # Extract the repository name from the URL
+        # For https://codegod100.github.io/bx/, the base path is "/bx"
+        path_parts = [part for part in window.location.pathname.split("/") if part]
+        if path_parts:
+            base_path = "/" + path_parts[0]
+    
+    print(f"[STARTUP] Detected base path: '{base_path}' (hostname: {window.location.hostname})")
+except Exception as e:
+    print(f"[STARTUP] Error detecting base path: {e}")
+    base_path = ""
 
 app = Application()
 app.error_page = CustomErrorPage
@@ -1018,11 +1045,13 @@ class TestPage(Page):
 
 
 print("[STARTUP] Mounting app to #app...")
+print(f"[STARTUP] Base path detected: '{base_path}'")
 # Check for redirect path from 404.html redirect (for GitHub Pages)
 redirect_path = None
 try:
     from js import sessionStorage
     redirect_path = sessionStorage.getItem('redirectPath')
+    print(f"[STARTUP] Redirect path from sessionStorage: '{redirect_path}'")
     if redirect_path:
         sessionStorage.removeItem('redirectPath')
         # Remove the base path from the redirect path if present
@@ -1030,18 +1059,30 @@ try:
             redirect_path = redirect_path[len(base_path):]
             if not redirect_path:
                 redirect_path = "/"
-except:
-    pass
+        print(f"[STARTUP] Processed redirect path: '{redirect_path}'")
+except Exception as e:
+    print(f"[STARTUP] Error handling redirect path: {e}")
 
 # Mount the app with the redirect path if available
 try:
-    if redirect_path:
+    if redirect_path is not None:
+        print(f"[STARTUP] Mounting with redirect path: '{redirect_path}'")
         app.mount("#app", path=redirect_path)
     else:
+        print("[STARTUP] Mounting with default path")
+        # Print the current browser location for debugging
+        try:
+            from js import window
+            print(f"[STARTUP] Current browser location: {window.location.href}")
+            print(f"[STARTUP] Current pathname: {window.location.pathname}")
+        except:
+            pass
         app.mount("#app")
     print("[STARTUP] App mounted successfully")
 except Exception as e:
     print(f"[STARTUP] Failed to mount app: {e}")
+    import traceback
+    traceback.print_exc()
 
 # Force auto-connect since on_mount might not be called
 print("[STARTUP] Manually triggering auto-connect...")

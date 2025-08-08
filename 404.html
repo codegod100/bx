@@ -4,14 +4,15 @@
     <meta charset="utf-8">
     <title>Redirecting...</title>
     <script>
-      // Determine base path dynamically
+      // Determine base path for GitHub Pages
       var basePath = "";
       try {
-        // Extract base path from the current URL
-        // For GitHub Pages: username.github.io/repo-name/...
-        var pathParts = location.pathname.split("/");
-        if (pathParts.length > 1 && pathParts[1]) {
-          basePath = "/" + pathParts[1];
+        // For GitHub Pages: username.github.io/repo-name/
+        if (location.hostname.includes("github.io") && location.hostname !== "github.io") {
+          var pathParts = location.pathname.split("/").filter(function(part) { return part; });
+          if (pathParts.length > 0) {
+            basePath = "/" + pathParts[0];
+          }
         }
       } catch (e) {
         // Fallback to empty base path
