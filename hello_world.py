@@ -1,4 +1,5 @@
 from puepy import Application, Page, t
+from puepy.router import Router
 import pyscript
 from js import window
 import asyncio
@@ -8,6 +9,7 @@ import time
 print("[STARTUP] hello_world.py loaded, initializing application...")
 
 app = Application()
+app.install_router(Router, link_mode=Router.LINK_MODE_HTML5)
 
 
 @app.page()
@@ -767,6 +769,15 @@ class HelloWorldPage(Page):
         except Exception as e:
             pass
 
+    def goto_test(self, event):
+        """Navigate to the test route using client-side routing"""
+        if self.router:
+            self.router.navigate_to_path("/test")
+        else:
+            # Fallback to direct navigation if router is not available
+            from js import window
+            window.location = "/test"
+
     def persist_state(self):
         try:
             state_snapshot = {
@@ -868,6 +879,10 @@ class HelloWorldPage(Page):
         with t.div(class_name="card"):
             t.h2("Live Stream Data", class_name="text-xl font-semibold mb-3 text-catppuccin-blue")
             
+            # Navigation links
+            with t.div(class_name="mb-4"):
+                t.button("Go to Test Route", on_click=self.goto_test, class_name="btn-base btn-green mr-2")
+            
             # Connection status and controls
             with t.div(class_name="mb-4"):
                 # Debug: Let's see what's really happening
@@ -953,8 +968,39 @@ class HelloWorldPage(Page):
                                 class_name="text-sm break-words text-catppuccin-text")
 
 
+@app.page("/test", name="test")
+class TestPage(Page):
+    def goto_home(self, event):
+        """Navigate to the home route using client-side routing"""
+        if self.router:
+            self.router.navigate_to_path("/")
+        else:
+            # Fallback to direct navigation if router is not available
+            from js import window
+            window.location = "/"
+    
+    def populate(self):
+        t.h1("Test Route Page", class_name="text-3xl font-bold mb-6 text-center text-catppuccin-mauve")
+        t.p("This is a test route page created with PuePy routing!", class_name="mb-4")
+        t.button("Go back to Home", on_click=self.goto_home, class_name="btn-base btn-blue")
+
+
 print("[STARTUP] Mounting app to #app...")
-app.mount("#app")
+# Check for redirect path from 404.html redirect (for GitHub Pages)
+redirect_path = None
+try:
+    from js import sessionStorage
+    redirect_path = sessionStorage.getItem('redirectPath')
+    if redirect_path:
+        sessionStorage.removeItem('redirectPath')
+except:
+    pass
+
+# Mount the app with the redirect path if available
+if redirect_path:
+    app.mount("#app", path=redirect_path)
+else:
+    app.mount("#app")
 print("[STARTUP] App mounted successfully")
 
 # Force auto-connect since on_mount might not be called
