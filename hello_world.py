@@ -106,8 +106,11 @@ class HelloWorldPage(Page):
                 return
 
             print("[SSE] Starting stream connection...")
-            self.state["connection_status"] = "Connected - waiting for data"
-            self.state["is_connected"] = True
+            # Update state using proper mutation to trigger reactivity
+            with self.state.mutate("connection_status"):
+                self.state["connection_status"] = "Connected - waiting for data"
+            with self.state.mutate("is_connected"):
+                self.state["is_connected"] = True
 
             url = "https://trailbase.nandi.crabdance.com/api/records/v1/people/subscribe/*"
             print(f"[SSE] Attempting to connect to: {url}")
@@ -121,8 +124,11 @@ class HelloWorldPage(Page):
                 def on_open(e):
                     print("[SSE] Connection opened successfully")
                     print(f"[SSE] Event object: {e}")
-                    self.state["connection_status"] = "Connected - waiting for data"
-                    self.state["is_connected"] = True
+                    # Update state using proper mutation
+                    with self.state.mutate("connection_status"):
+                        self.state["connection_status"] = "Connected - waiting for data"
+                    with self.state.mutate("is_connected"):
+                        self.state["is_connected"] = True
 
                 async def process_payload_text(payload_text: str):
                     print(f"[SSE] Processing payload: {payload_text[:200]}{'...' if len(payload_text) > 200 else ''}")
@@ -194,9 +200,11 @@ class HelloWorldPage(Page):
                         print(f"[SSE] Error details: readyState={getattr(e.target, 'readyState', 'unknown')}")
                     except Exception:
                         pass
-                    # Mark disconnected and cleanup
-                    self.state["is_connected"] = False
-                    self.state["connection_status"] = "Disconnected"
+                    # Mark disconnected and cleanup using proper mutation
+                    with self.state.mutate("is_connected"):
+                        self.state["is_connected"] = False
+                    with self.state.mutate("connection_status"):
+                        self.state["connection_status"] = "Disconnected"
                     try:
                         if getattr(self, "_event_source", None) is not None:
                             print("[SSE] Closing EventSource...")
@@ -207,7 +215,8 @@ class HelloWorldPage(Page):
                     # Auto-reconnect if allowed
                     if getattr(self, "_stream_should_run", True):
                         print("[SSE] Scheduling reconnect in 2 seconds...")
-                        self.state["connection_status"] = "Reconnecting in 2s..."
+                        with self.state.mutate("connection_status"):
+                            self.state["connection_status"] = "Reconnecting in 2s..."
                         asyncio.create_task(self._reconnect_after_delay())
                     else:
                         print("[SSE] Auto-reconnect disabled")
@@ -225,12 +234,14 @@ class HelloWorldPage(Page):
             except Exception as sse_error:
                 print(f"[SSE] EventSource creation failed: {sse_error}")
                 self.state["is_connected"] = False
-                self.state["connection_status"] = f"SSE Error: {str(sse_error)}"
+                with self.state.mutate("connection_status"):
+                    self.state["connection_status"] = f"SSE Error: {str(sse_error)}"
                 
         except Exception as e:
             print(f"[SSE] Overall connection error: {e}")
             self.state["is_connected"] = False
-            self.state["connection_status"] = f"Error: {str(e)}"
+            with self.state.mutate("connection_status"):
+                self.state["connection_status"] = f"Error: {str(e)}"
     
     async def _sse_timeout_fallback(self):
         """Timeout to check for heartbeat/data after 1 minute"""
@@ -239,7 +250,9 @@ class HelloWorldPage(Page):
             await asyncio.sleep(60)
             if not self.state.get("is_connected", False):
                 print("[SSE] No heartbeat/data received within 60 seconds")
-                self.state["connection_status"] = "No heartbeat - connection may be dead"
+                with self.state.mutate("connection_status"):
+                    self.state["connection_status"] = "No heartbeat - connection may be dead"
+                self.state["is_connected"] = False
             else:
                 print("[SSE] Heartbeat timeout passed - connection appears active")
         except Exception as e:
@@ -537,7 +550,8 @@ class HelloWorldPage(Page):
         # Disable auto-reconnect loop
         self._stream_should_run = False
         self.state["is_connected"] = False
-        self.state["connection_status"] = "Disconnected"
+        with self.state.mutate("connection_status"):
+            self.state["connection_status"] = "Disconnected"
         pass
     
     def handle_clear_stream_data(self, event):
@@ -646,7 +660,8 @@ class HelloWorldPage(Page):
                 print(f"[AUTO] Connect task created successfully: {task}")
             except Exception as e:
                 print(f"[AUTO] Failed to auto-connect stream: {e}")
-                self.state["connection_status"] = f"Auto-connect failed: {str(e)}"
+                with self.state.mutate("connection_status"):
+                    self.state["connection_status"] = f"Auto-connect failed: {str(e)}"
         
         # Try setTimeout first, but also start immediately as backup
         try:
@@ -855,8 +870,25 @@ class HelloWorldPage(Page):
             
             # Connection status and controls
             with t.div(class_name="mb-4"):
-                t.p(f"Status: {self.state['connection_status']}", 
-                    class_name=f"mb-2 {'text-catppuccin-green' if self.state['is_connected'] else 'text-catppuccin-red'}")
+                # Debug: Let's see what's really happening
+                status_text = f"Status: {self.state['connection_status']}"
+                is_connected = "Connected" in self.state["connection_status"]
+                
+                import time
+                print(f"DEBUG RENDER: populate() called at {time.time()}")
+                print(f"DEBUG RENDER: connection_status = '{self.state['connection_status']}'")
+                print(f"DEBUG RENDER: is_connected = {is_connected}")
+                
+                if is_connected:
+                    print(f"DEBUG RENDER: Using GREEN inline style")
+                    t.p(status_text, 
+                        style="margin-bottom: 0.5rem; color: #a6e3a1;", 
+                        key="status-green")
+                else:
+                    print(f"DEBUG RENDER: Using RED inline style") 
+                    t.p(status_text, 
+                        style="margin-bottom: 0.5rem; color: #f38ba8;", 
+                        key="status-red")
                 
                 with t.div(class_name="flex gap-2 flex-wrap"):
                     # Update User 2 button
