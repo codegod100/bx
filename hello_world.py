@@ -155,32 +155,35 @@ class HelloWorldPage(Page):
             logger.debug(f"persist_state failed: {e}")
     
     def populate(self):
-        t.h1("Hello, World!", class_name="text-3xl font-bold mb-6 text-center text-[#cba6f7]")
+        t.h1("Hello, World!", class_name="text-3xl font-bold mb-6 text-center", style="color: var(--catppuccin-mauve);")
         
         # Counter section
-        with t.div(class_name="m-4 p-4 rounded-lg bg-[#313244] border border-[#585b70]"):
-            t.h2("Counter", class_name="text-xl font-semibold mb-3 text-[#89b4fa]")
-            t.p(f"Count: {self.state['count']}", class_name="mb-3 text-[#a6e3a1]")
+        with t.div(class_name="m-4 p-4 rounded-lg border", style="background-color: var(--catppuccin-surface0); border-color: var(--catppuccin-surface2);"):
+            t.h2("Counter", class_name="text-xl font-semibold mb-3", style="color: var(--catppuccin-blue);")
+            t.p(f"Count: {self.state['count']}", class_name="mb-3", style="color: var(--catppuccin-green);")
             with t.div(class_name="flex gap-2"):
                 t.button(
                     "Decrement",
                     on_click=self.handle_decrement,
-                    class_name="px-4 py-2 bg-[#f38ba8] hover:bg-[#eba0ac] text-[#11111b] font-medium rounded-md transition-colors"
+                    class_name="px-4 py-2 font-medium rounded-md transition-colors",
+                    style="background-color: var(--catppuccin-red); color: var(--catppuccin-crust);"
                 )
                 t.button(
                     "Reset",
                     on_click=self.handle_reset_count,
-                    class_name="px-4 py-2 bg-[#cba6f7] hover:bg-[#89b4fa] text-[#11111b] font-medium rounded-md transition-colors"
+                    class_name="px-4 py-2 font-medium rounded-md transition-colors",
+                    style="background-color: var(--catppuccin-mauve); color: var(--catppuccin-crust);"
                 )
                 t.button(
                     "Increment",
                     on_click=self.handle_increment,
-                    class_name="px-4 py-2 bg-[#89b4fa] hover:bg-[#74c7ec] text-[#11111b] font-medium rounded-md transition-colors"
+                    class_name="px-4 py-2 font-medium rounded-md transition-colors",
+                    style="background-color: var(--catppuccin-blue); color: var(--catppuccin-crust);"
                 )
         
         # Todo input section
-        with t.div(class_name="m-4 p-4 rounded-lg bg-[#313244] border border-[#585b70]"):
-            t.h2("Add Todo", class_name="text-xl font-semibold mb-3 text-[#89b4fa]")
+        with t.div(class_name="m-4 p-4 rounded-lg border", style="background-color: var(--catppuccin-surface0); border-color: var(--catppuccin-surface2);"):
+            t.h2("Add Todo", class_name="text-xl font-semibold mb-3", style="color: var(--catppuccin-blue);")
             # Using flexbox for responsive layout with proper spacing on mobile
             with t.div(class_name="flex flex-col sm:flex-row sm:items-center gap-2"):
                 t.input(
@@ -188,52 +191,57 @@ class HelloWorldPage(Page):
                     value=self.state["input_text"],
                     on_input=self.handle_input_change,
                     on_keydown=self.handle_input_keydown,
-                    class_name="flex-grow px-3 py-2 border border-[#6c7086] rounded-md bg-[#45475a] text-[#cdd6f4] focus:outline-none focus:ring-2 focus:ring-[#89dceb]"
+                    class_name="flex-grow px-3 py-2 border rounded-md focus:outline-none focus:ring-2",
+                    style="border-color: var(--catppuccin-overlay0); background-color: var(--catppuccin-surface1); color: var(--catppuccin-text);"
                 )
-                t.button("Add Todo", on_click=self.handle_add_todo, class_name="px-4 py-2 bg-[#a6e3a1] hover:bg-[#94e2d5] text-[#11111b] font-medium rounded-md transition-colors whitespace-nowrap")
+                t.button("Add Todo", on_click=self.handle_add_todo, class_name="px-4 py-2 font-medium rounded-md transition-colors whitespace-nowrap", style="background-color: var(--catppuccin-green); color: var(--catppuccin-crust);")
         
         # Active todos section
-        with t.div(class_name="m-4 p-4 rounded-lg bg-[#313244] border border-[#585b70]"):
-            t.h2("To Do", class_name="text-xl font-semibold mb-3 text-[#89b4fa]")
+        with t.div(class_name="m-4 p-4 rounded-lg border", style="background-color: var(--catppuccin-surface0); border-color: var(--catppuccin-surface2);"):
+            t.h2("To Do", class_name="text-xl font-semibold mb-3", style="color: var(--catppuccin-blue);")
             if len(self.state["todos"]) == 0:
-                t.p("Nothing to do. Add a task above.", class_name="text-[#a6adc8]")
+                t.p("Nothing to do. Add a task above.", style="color: var(--catppuccin-subtext0);")
             else:
                 with t.ul(class_name="list-none p-0"):
                     for index, todo in enumerate(self.state["todos"]):
-                        with t.li(class_name="flex justify-between items-center py-2 border-b border-[#45475a]"):
-                            t.span(todo, class_name="text-[#cdd6f4]")
+                        with t.li(class_name="flex justify-between items-center py-2 border-b", style="border-color: var(--catppuccin-surface1);"):
+                            t.span(todo, style="color: var(--catppuccin-text);")
                             with t.div(class_name="flex gap-2"):
                                 t.button(
                                     "Complete",
                                     on_click=lambda e, idx=index: self.handle_complete_todo(e, idx),
-                                    class_name="px-3 py-1 bg-[#a6e3a1] hover:bg-[#94e2d5] text-[#11111b] font-medium rounded-md transition-colors"
+                                    class_name="px-3 py-1 font-medium rounded-md transition-colors",
+                                    style="background-color: var(--catppuccin-green); color: var(--catppuccin-crust);"
                                 )
                                 t.button(
                                     "Remove",
                                     on_click=lambda e, idx=index: self.handle_remove_todo(e, idx),
-                                    class_name="px-3 py-1 bg-[#f38ba8] hover:bg-[#eba0ac] text-[#11111b] font-medium rounded-md transition-colors"
+                                    class_name="px-3 py-1 font-medium rounded-md transition-colors",
+                                    style="background-color: var(--catppuccin-red); color: var(--catppuccin-crust);"
                                 )
 
         # Completed todos section
-        with t.div(class_name="m-4 p-4 rounded-lg bg-[#313244] border border-[#585b70]"):
-            t.h2("Completed", class_name="text-xl font-semibold mb-3 text-[#89b4fa]")
+        with t.div(class_name="m-4 p-4 rounded-lg border", style="background-color: var(--catppuccin-surface0); border-color: var(--catppuccin-surface2);"):
+            t.h2("Completed", class_name="text-xl font-semibold mb-3", style="color: var(--catppuccin-blue);")
             if len(self.state["completed"]) == 0:
-                t.p("No completed tasks yet.", class_name="text-[#a6adc8]")
+                t.p("No completed tasks yet.", style="color: var(--catppuccin-subtext0);")
             else:
                 with t.ul(class_name="list-none p-0"):
                     for index, todo in enumerate(self.state["completed"]):
-                        with t.li(class_name="flex justify-between items-center py-2 border-b border-[#45475a]"):
-                            t.span(todo, class_name="text-[#cdd6f4] line-through")
+                        with t.li(class_name="flex justify-between items-center py-2 border-b", style="border-color: var(--catppuccin-surface1);"):
+                            t.span(todo, class_name="line-through", style="color: var(--catppuccin-text);")
                             with t.div(class_name="flex gap-2"):
                                 t.button(
                                     "Undo",
                                     on_click=lambda e, idx=index: self.handle_uncomplete_todo(e, idx),
-                                    class_name="px-3 py-1 bg-[#a6e3a1] hover:bg-[#94e2d5] text-[#11111b] font-medium rounded-md transition-colors"
+                                    class_name="px-3 py-1 font-medium rounded-md transition-colors",
+                                    style="background-color: var(--catppuccin-green); color: var(--catppuccin-crust);"
                                 )
                                 t.button(
                                     "Remove",
                                     on_click=lambda e, idx=index: self.handle_remove_completed(e, idx),
-                                    class_name="px-3 py-1 bg-[#f38ba8] hover:bg-[#eba0ac] text-[#11111b] font-medium rounded-md transition-colors"
+                                    class_name="px-3 py-1 font-medium rounded-md transition-colors",
+                                    style="background-color: var(--catppuccin-red); color: var(--catppuccin-crust);"
                                 )
 
 
