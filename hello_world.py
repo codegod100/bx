@@ -543,7 +543,18 @@ class HelloWorldPage(Page):
     
     def handle_clear_stream_data(self, event):
         """Clear the stream data"""
+        try:
+            if hasattr(event, "preventDefault"):
+                event.preventDefault()
+            if hasattr(event, "stopPropagation"):
+                event.stopPropagation()
+        except Exception:
+            pass
+        
+        print("[CLEAR] Clearing stream data...")
+        current_count = len(self.state.get("stream_data", []))
         self.state["stream_data"] = []
+        print(f"[CLEAR] Cleared {current_count} stream data records")
     
     def handle_update_user_2_click(self, event):
         """Schedule async update of user 2"""
@@ -759,35 +770,32 @@ class HelloWorldPage(Page):
             pass
     
     def populate(self):
-        t.h1("Hello, World!", class_name="text-3xl font-bold mb-6 text-center", style="color: var(--catppuccin-mauve);")
+        t.h1("Hello, World!", class_name="text-3xl font-bold mb-6 text-center text-catppuccin-mauve")
         
         # Counter section
-        with t.div(class_name="m-4 p-4 rounded-lg border", style="background-color: var(--catppuccin-surface0); border-color: var(--catppuccin-surface2);"):
-            t.h2("Counter", class_name="text-xl font-semibold mb-3", style="color: var(--catppuccin-blue);")
-            t.p(f"Count: {self.state['count']}", class_name="mb-3", style="color: var(--catppuccin-green);")
+        with t.div(class_name="card"):
+            t.h2("Counter", class_name="text-xl font-semibold mb-3 text-catppuccin-blue")
+            t.p(f"Count: {self.state['count']}", class_name="mb-3 text-catppuccin-green")
             with t.div(class_name="flex gap-2"):
                 t.button(
                     "Decrement",
                     on_click=self.handle_decrement,
-                    class_name="px-4 py-2 font-medium rounded-md transition-colors",
-                    style="background-color: var(--catppuccin-red); color: var(--catppuccin-crust);"
+                    class_name="btn-base btn-red"
                 )
                 t.button(
                     "Reset",
                     on_click=self.handle_reset_count,
-                    class_name="px-4 py-2 font-medium rounded-md transition-colors",
-                    style="background-color: var(--catppuccin-mauve); color: var(--catppuccin-crust);"
+                    class_name="btn-base btn-mauve"
                 )
                 t.button(
                     "Increment",
                     on_click=self.handle_increment,
-                    class_name="px-4 py-2 font-medium rounded-md transition-colors",
-                    style="background-color: var(--catppuccin-blue); color: var(--catppuccin-crust);"
+                    class_name="btn-base btn-blue"
                 )
         
         # Todo input section
-        with t.div(class_name="m-4 p-4 rounded-lg border", style="background-color: var(--catppuccin-surface0); border-color: var(--catppuccin-surface2);"):
-            t.h2("Add Todo", class_name="text-xl font-semibold mb-3", style="color: var(--catppuccin-blue);")
+        with t.div(class_name="card"):
+            t.h2("Add Todo", class_name="text-xl font-semibold mb-3 text-catppuccin-blue")
             # Using flexbox for responsive layout with proper spacing on mobile
             with t.div(class_name="flex flex-col sm:flex-row sm:items-center gap-2"):
                 t.input(
@@ -795,76 +803,69 @@ class HelloWorldPage(Page):
                     value=self.state["input_text"],
                     on_input=self.handle_input_change,
                     on_keydown=self.handle_input_keydown,
-                    class_name="flex-grow px-3 py-2 border rounded-md focus:outline-none focus:ring-2",
-                    style="border-color: var(--catppuccin-overlay0); background-color: var(--catppuccin-surface1); color: var(--catppuccin-text);"
+                    class_name="input-base"
                 )
-                t.button("Add Todo", on_click=self.handle_add_todo, class_name="px-4 py-2 font-medium rounded-md transition-colors whitespace-nowrap", style="background-color: var(--catppuccin-green); color: var(--catppuccin-crust);")
+                t.button("Add Todo", on_click=self.handle_add_todo, class_name="btn-base btn-green whitespace-nowrap")
         
         # Active todos section
-        with t.div(class_name="m-4 p-4 rounded-lg border", style="background-color: var(--catppuccin-surface0); border-color: var(--catppuccin-surface2);"):
-            t.h2("To Do", class_name="text-xl font-semibold mb-3", style="color: var(--catppuccin-blue);")
+        with t.div(class_name="card"):
+            t.h2("To Do", class_name="text-xl font-semibold mb-3 text-catppuccin-blue")
             if len(self.state["todos"]) == 0:
-                t.p("Nothing to do. Add a task above.", style="color: var(--catppuccin-subtext0);")
+                t.p("Nothing to do. Add a task above.", class_name="text-catppuccin-subtext0")
             else:
                 with t.ul(class_name="list-none p-0"):
                     for index, todo in enumerate(self.state["todos"]):
-                        with t.li(class_name="flex justify-between items-center py-2 border-b", style="border-color: var(--catppuccin-surface1);"):
-                            t.span(todo, style="color: var(--catppuccin-text);")
+                        with t.li(class_name="flex justify-between items-center py-2 border-b border-catppuccin-surface1"):
+                            t.span(todo, class_name="text-catppuccin-text")
                             with t.div(class_name="flex gap-2"):
                                 t.button(
                                     "Complete",
                                     on_click=lambda e, idx=index: self.handle_complete_todo(e, idx),
-                                    class_name="px-3 py-1 font-medium rounded-md transition-colors",
-                                    style="background-color: var(--catppuccin-green); color: var(--catppuccin-crust);"
+                                    class_name="btn-sm btn-green"
                                 )
                                 t.button(
                                     "Remove",
                                     on_click=lambda e, idx=index: self.handle_remove_todo(e, idx),
-                                    class_name="px-3 py-1 font-medium rounded-md transition-colors",
-                                    style="background-color: var(--catppuccin-red); color: var(--catppuccin-crust);"
+                                    class_name="btn-sm btn-red"
                                 )
 
         # Completed todos section
-        with t.div(class_name="m-4 p-4 rounded-lg border", style="background-color: var(--catppuccin-surface0); border-color: var(--catppuccin-surface2);"):
-            t.h2("Completed", class_name="text-xl font-semibold mb-3", style="color: var(--catppuccin-blue);")
+        with t.div(class_name="card"):
+            t.h2("Completed", class_name="text-xl font-semibold mb-3 text-catppuccin-blue")
             if len(self.state["completed"]) == 0:
-                t.p("No completed tasks yet.", style="color: var(--catppuccin-subtext0);")
+                t.p("No completed tasks yet.", class_name="text-catppuccin-subtext0")
             else:
                 with t.ul(class_name="list-none p-0"):
                     for index, todo in enumerate(self.state["completed"]):
-                        with t.li(class_name="flex justify-between items-center py-2 border-b", style="border-color: var(--catppuccin-surface1);"):
-                            t.span(todo, class_name="line-through", style="color: var(--catppuccin-text);")
+                        with t.li(class_name="flex justify-between items-center py-2 border-b border-catppuccin-surface1"):
+                            t.span(todo, class_name="line-through text-catppuccin-text")
                             with t.div(class_name="flex gap-2"):
                                 t.button(
                                     "Undo",
                                     on_click=lambda e, idx=index: self.handle_uncomplete_todo(e, idx),
-                                    class_name="px-3 py-1 font-medium rounded-md transition-colors",
-                                    style="background-color: var(--catppuccin-green); color: var(--catppuccin-crust);"
+                                    class_name="btn-sm btn-green"
                                 )
                                 t.button(
                                     "Remove",
                                     on_click=lambda e, idx=index: self.handle_remove_completed(e, idx),
-                                    class_name="px-3 py-1 font-medium rounded-md transition-colors",
-                                    style="background-color: var(--catppuccin-red); color: var(--catppuccin-crust);"
+                                    class_name="btn-sm btn-red"
                                 )
 
         # Streaming API section
-        with t.div(class_name="m-4 p-4 rounded-lg border", style="background-color: var(--catppuccin-surface0); border-color: var(--catppuccin-surface2);"):
-            t.h2("Live Stream Data", class_name="text-xl font-semibold mb-3", style="color: var(--catppuccin-blue);")
+        with t.div(class_name="card"):
+            t.h2("Live Stream Data", class_name="text-xl font-semibold mb-3 text-catppuccin-blue")
             
             # Connection status and controls
             with t.div(class_name="mb-4"):
                 t.p(f"Status: {self.state['connection_status']}", 
-                    class_name="mb-2", 
-                    style=f"color: {'var(--catppuccin-green)' if self.state['is_connected'] else 'var(--catppuccin-red)'};")
+                    class_name=f"mb-2 {'text-catppuccin-green' if self.state['is_connected'] else 'text-catppuccin-red'}")
                 
                 with t.div(class_name="flex gap-2 flex-wrap"):
                     # Update User 2 button
                     t.button(
                         "Update User 2 (Random Data)",
                         on_click=self.handle_update_user_2_click,
-                        class_name="px-4 py-2 font-medium rounded-md transition-colors",
-                        style="background-color: var(--catppuccin-blue); color: var(--catppuccin-crust);",
+                        class_name="btn-base btn-blue",
                         key="btn-update-user"
                     )
                     
@@ -873,8 +874,7 @@ class HelloWorldPage(Page):
                         t.button(
                             "Disconnect",
                             on_click=self.handle_disconnect_stream,
-                            class_name="px-4 py-2 font-medium rounded-md transition-colors",
-                            style="background-color: var(--catppuccin-red); color: var(--catppuccin-crust);",
+                            class_name="btn-base btn-red",
                             key="btn-disconnect"
                         )
                     
@@ -883,29 +883,26 @@ class HelloWorldPage(Page):
                         t.button(
                             "Clear Data",
                             on_click=self.handle_clear_stream_data,
-                            class_name="px-4 py-2 font-medium rounded-md transition-colors",
-                            style="background-color: var(--catppuccin-mauve); color: var(--catppuccin-crust);",
+                            class_name="btn-base btn-mauve",
                             key="btn-clear-data"
                         )
             
             # Stream data display
             if len(self.state["stream_data"]) == 0:
                 t.p("No stream data received yet. Stream auto-connects on page load. Click 'Update User 2' to generate test data.", 
-                    style="color: var(--catppuccin-subtext0);")
+                    class_name="text-catppuccin-subtext0")
             else:
                 t.p(f"Received {len(self.state['stream_data'])} records:", 
-                    class_name="mb-3", 
-                    style="color: var(--catppuccin-text);")
+                    class_name="mb-3 text-catppuccin-text")
                 
                 # Display the most recent data first
                 for i, data in enumerate(reversed(self.state["stream_data"])):
                     record_number = len(self.state['stream_data']) - i
                     # Create unique key for each record to prevent rendering issues
                     record_key = f"record-{record_number}-{data.get('timestamp', i)}"
-                    with t.div(class_name="mb-3 p-3 rounded border", style="background-color: var(--catppuccin-surface1); border-color: var(--catppuccin-surface2);", key=record_key):
+                    with t.div(class_name="mb-3 p-3 rounded border bg-catppuccin-surface1 border-catppuccin-surface2", key=record_key):
                         t.p(f"Record #{record_number}",
-                            class_name="font-semibold mb-2",
-                            style="color: var(--catppuccin-blue);")
+                            class_name="font-semibold mb-2 text-catppuccin-blue")
                         
                         # Display timestamp if available
                         if "timestamp" in data:
@@ -919,24 +916,20 @@ class HelloWorldPage(Page):
                                 
                                 timestamp = window.Date(timestamp_num).toLocaleString()
                                 t.p(f"Time: {timestamp}", 
-                                    class_name="text-sm mb-2", 
-                                    style="color: var(--catppuccin-subtext0);")
+                                    class_name="text-sm mb-2 text-catppuccin-subtext0")
                             except Exception as e:
                                 # Fallback to showing the raw timestamp
                                 t.p(f"Time: {data['timestamp']}", 
-                                    class_name="text-sm mb-2", 
-                                    style="color: var(--catppuccin-subtext0);")
+                                    class_name="text-sm mb-2 text-catppuccin-subtext0")
                         
-                        # Display the data as formatted JSON
+                        # Display the data as formatted JSON with proper width constraints
                         try:
                             formatted_json = json.dumps(data, indent=2)
                             t.pre(formatted_json, 
-                                  class_name="text-sm overflow-x-auto", 
-                                  style="color: var(--catppuccin-text); background-color: var(--catppuccin-crust); padding: 0.5rem; border-radius: 0.25rem;")
+                                  class_name="json-display")
                         except Exception:
                             t.p(str(data), 
-                                class_name="text-sm", 
-                                style="color: var(--catppuccin-text);")
+                                class_name="text-sm break-words text-catppuccin-text")
 
 
 print("[STARTUP] Mounting app to #app...")

@@ -42,3 +42,104 @@ body {
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   font-variation-settings: 'opsz' auto;
 }
+
+/* Custom Catppuccin utility classes */
+.bg-catppuccin-base { background-color: var(--catppuccin-base); }
+.bg-catppuccin-surface0 { background-color: var(--catppuccin-surface0); }
+.bg-catppuccin-surface1 { background-color: var(--catppuccin-surface1); }
+.bg-catppuccin-surface2 { background-color: var(--catppuccin-surface2); }
+.bg-catppuccin-crust { background-color: var(--catppuccin-crust); }
+.bg-catppuccin-red { background-color: var(--catppuccin-red); }
+.bg-catppuccin-green { background-color: var(--catppuccin-green); }
+.bg-catppuccin-blue { background-color: var(--catppuccin-blue); }
+.bg-catppuccin-mauve { background-color: var(--catppuccin-mauve); }
+
+.text-catppuccin-text { color: var(--catppuccin-text); }
+.text-catppuccin-subtext0 { color: var(--catppuccin-subtext0); }
+.text-catppuccin-subtext1 { color: var(--catppuccin-subtext1); }
+.text-catppuccin-blue { color: var(--catppuccin-blue); }
+.text-catppuccin-green { color: var(--catppuccin-green); }
+.text-catppuccin-mauve { color: var(--catppuccin-mauve); }
+.text-catppuccin-red { color: var(--catppuccin-red); }
+.text-catppuccin-crust { color: var(--catppuccin-crust); }
+
+.border-catppuccin-surface1 { border-color: var(--catppuccin-surface1); }
+.border-catppuccin-surface2 { border-color: var(--catppuccin-surface2); }
+.border-catppuccin-overlay0 { border-color: var(--catppuccin-overlay0); }
+
+/* Button styles */
+.btn-base {
+  padding: 0.5rem 0.75rem;
+  font-weight: 500;
+  border-radius: 0.375rem;
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
+}
+
+.btn-sm {
+  padding: 0.25rem 0.75rem;
+  font-weight: 500;
+  border-radius: 0.375rem;
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
+}
+
+.btn-red {
+  background-color: var(--catppuccin-red);
+  color: var(--catppuccin-crust);
+}
+
+.btn-green {
+  background-color: var(--catppuccin-green);
+  color: var(--catppuccin-crust);
+}
+
+.btn-blue {
+  background-color: var(--catppuccin-blue);
+  color: var(--catppuccin-crust);
+}
+
+.btn-mauve {
+  background-color: var(--catppuccin-mauve);
+  color: var(--catppuccin-crust);
+}
+
+/* Container styles */
+.card {
+  margin: 1rem;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--catppuccin-surface2);
+  background-color: var(--catppuccin-surface0);
+}
+
+/* Input styles */
+.input-base {
+  flex-grow: 1;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--catppuccin-overlay0);
+  border-radius: 0.375rem;
+  background-color: var(--catppuccin-surface1);
+  color: var(--catppuccin-text);
+}
+
+.input-base:focus {
+  outline: none;
+  ring: 2px;
+  ring-color: var(--catppuccin-blue);
+}
+
+/* JSON display */
+.json-display {
+  font-size: 0.875rem;
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 16rem;
+  color: var(--catppuccin-text);
+  background-color: var(--catppuccin-crust);
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  max-width: 100%;
+}
