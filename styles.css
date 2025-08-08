@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
 /* Catppuccin Mocha Color Palette */
@@ -33,4 +34,11 @@
   --catppuccin-base: rgb(30 30 46);
   --catppuccin-mantle: rgb(24 24 37);
   --catppuccin-crust: rgb(17 17 27);
+}
+
+/* Modern font stack inspired by Catppuccin's clean aesthetic */
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  font-variation-settings: 'opsz' auto;
 }
