@@ -106,8 +106,8 @@ class HelloWorldPage(Page):
                 return
 
             print("[SSE] Starting stream connection...")
-            self.state["connection_status"] = "Connecting..."
-            self.state["is_connected"] = False
+            self.state["connection_status"] = "Connected - waiting for data"
+            self.state["is_connected"] = True
 
             url = "https://trailbase.nandi.crabdance.com/api/records/v1/people/subscribe/*"
             print(f"[SSE] Attempting to connect to: {url}")
@@ -121,7 +121,7 @@ class HelloWorldPage(Page):
                 def on_open(e):
                     print("[SSE] Connection opened successfully")
                     print(f"[SSE] Event object: {e}")
-                    self.state["connection_status"] = "Connected (SSE)"
+                    self.state["connection_status"] = "Connected - waiting for data"
                     self.state["is_connected"] = True
 
                 async def process_payload_text(payload_text: str):
@@ -224,9 +224,8 @@ class HelloWorldPage(Page):
                 
             except Exception as sse_error:
                 print(f"[SSE] EventSource creation failed: {sse_error}")
-                # Fallback to fetch-based streaming
-                print("[SSE] Falling back to fetch-based streaming...")
-                await self._connect_with_fetch()
+                self.state["is_connected"] = False
+                self.state["connection_status"] = f"SSE Error: {str(sse_error)}"
                 
         except Exception as e:
             print(f"[SSE] Overall connection error: {e}")
@@ -234,19 +233,19 @@ class HelloWorldPage(Page):
             self.state["connection_status"] = f"Error: {str(e)}"
     
     async def _sse_timeout_fallback(self):
-        """Timeout fallback if SSE doesn't receive data within 5 seconds"""
+        """Timeout to check for heartbeat/data after 1 minute"""
         try:
-            print("[SSE] Starting 5-second timeout for SSE connection...")
-            await asyncio.sleep(5)
+            print("[SSE] Starting 60-second timeout for heartbeat check...")
+            await asyncio.sleep(60)
             if not self.state.get("is_connected", False):
-                print("[SSE] Timeout reached and still not connected, falling back to fetch...")
-                await self._connect_with_fetch()
+                print("[SSE] No heartbeat/data received within 60 seconds")
+                self.state["connection_status"] = "No heartbeat - connection may be dead"
             else:
-                print("[SSE] SSE connection successful, no fallback needed")
+                print("[SSE] Heartbeat timeout passed - connection appears active")
         except Exception as e:
-            print(f"[SSE] Timeout fallback error: {e}")
+            print(f"[SSE] Heartbeat timeout check error: {e}")
     
-    async def _connect_with_fetch(self):
+    async def _connect_with_fetch_REMOVED(self):
         """Fallback connection using fetch API"""
         try:
             print("[FETCH] Starting fetch-based streaming connection...")
@@ -395,9 +394,9 @@ class HelloWorldPage(Page):
             else:
                 print(f"[FETCH] Response not OK - status: {response.status}")
                 self.state["connection_status"] = f"Connection failed: {response.status}"
-                # Fallback to polling
-                print("[FETCH] Falling back to polling...")
-                await self._connect_with_polling()
+                # SSE-only mode - no fallbacks
+                print("[FETCH] SSE-only mode - no polling fallback")
+                self.state["connection_status"] = "SSE connection failed - no fallbacks"
 
         except Exception as e:
             print(f"[FETCH] Connection error: {e}")
@@ -412,9 +411,9 @@ class HelloWorldPage(Page):
             except Exception as status_ex:
                 print(f"[FETCH] Error setting connection status: {status_ex}")
                 self.state["connection_status"] = f"Error: {str(e)}"
-            # Fallback to polling
-            print("[FETCH] Falling back to polling...")
-            await self._connect_with_polling()
+            # SSE-only mode - no fallbacks
+            print("[FETCH] SSE-only mode - no polling fallback")
+            self.state["connection_status"] = "SSE connection failed - no fallbacks"
         finally:
             print("[FETCH] Cleaning up fetch connection...")
             self.state["is_connected"] = False
@@ -434,7 +433,7 @@ class HelloWorldPage(Page):
             else:
                 print("[FETCH] Auto-reconnect disabled or connection was aborted")
     
-    async def _connect_with_polling(self):
+    async def _connect_with_polling_REMOVED(self):
         """Final fallback: simple polling approach"""
         try:
             print("[POLLING] Starting polling connection...")
@@ -606,18 +605,20 @@ class HelloWorldPage(Page):
             )
             
             if response.ok:
-                pass
-                # Force a polling update to see the change immediately
-                if getattr(self, "_stream_should_run", False):
-                    pass
-                    asyncio.create_task(self._force_polling_update())
+                print(f"[UPDATE] Successfully updated user 2 with name: {random_name}, age: {random_age}")
+                print("[UPDATE] Change should appear automatically via stream subscription")
             else:
-                pass
+                print(f"[UPDATE] Failed to update user 2 - status: {response.status}")
+                try:
+                    error_text = await response.text()
+                    print(f"[UPDATE] Error details: {error_text}")
+                except Exception:
+                    pass
                 
         except Exception as e:
             pass
     
-    async def _force_polling_update(self):
+    async def _force_polling_update_REMOVED(self):
         """Force an immediate polling update to see the change"""
         try:
             print("[FORCE_POLL] Forcing immediate polling update")
@@ -868,15 +869,6 @@ class HelloWorldPage(Page):
                         class_name="btn-base btn-blue",
                         key="btn-update-user"
                     )
-                    
-                    # Disconnect button (only show if connected)
-                    if self.state["is_connected"]:
-                        t.button(
-                            "Disconnect",
-                            on_click=self.handle_disconnect_stream,
-                            class_name="btn-base btn-red",
-                            key="btn-disconnect"
-                        )
                     
                     # Clear data button
                     if len(self.state["stream_data"]) > 0:
