@@ -8,6 +8,56 @@
     <link rel="stylesheet" href="./dist/styles.css">
     <link rel="stylesheet" href="https://pyscript.net/releases/2025.2.2/core.css">
     <script type="module" src="https://pyscript.net/releases/2025.2.2/core.js"></script>
+    <script type="module">
+        // OPFS helpers with top-level await to preload initial state
+        // Accept JSON string to avoid Python<->JS proxy conversion issues
+        async function saveState(stateJson) {
+            try {
+                const root = await navigator.storage.getDirectory();
+                const fileHandle = await root.getFileHandle('state.json', { create: true });
+                const writable = await fileHandle.createWritable();
+                const payload = typeof stateJson === 'string' ? stateJson : JSON.stringify(stateJson);
+                await writable.write(new Blob([payload], { type: 'application/json' }));
+                await writable.close();
+                return true;
+            } catch (e) {
+                console.warn('saveState failed', e);
+                return false;
+            }
+        }
+
+        async function loadState() {
+            try {
+                const root = await navigator.storage.getDirectory();
+                const fileHandle = await root.getFileHandle('state.json');
+                const file = await fileHandle.getFile();
+                const text = await file.text();
+                return JSON.parse(text);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        const __INITIAL_STATE__ = await loadState();
+        // Expose as plain string to simplify Python side
+        window.__INITIAL_STATE__ = __INITIAL_STATE__ ? JSON.stringify(__INITIAL_STATE__) : "";
+        window.__opfs__ = { saveState, loadState };
+
+        // Confetti setup
+        import confetti from './dist/confetti.module.mjs';
+        const canvas = document.createElement('canvas');
+        canvas.id = 'confetti-canvas';
+        canvas.style.position = 'fixed';
+        canvas.style.pointerEvents = 'none';
+        canvas.style.top = '0';
+        canvas.style.left = '0';
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
+        document.body.appendChild(canvas);
+
+        const conf = confetti.create(canvas, { resize: true, useWorker: false });
+        window.__confetti__ = conf;
+    </script>
 </head>
 
 <body class="bg-[#1e1e2e] text-[#cdd6f4] min-h-screen">
