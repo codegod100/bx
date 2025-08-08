@@ -36,35 +36,11 @@ class CustomErrorPage(Page):
         else:
             t.p("An unknown error occurred.", class_name="mb-4")
             t.p("Please check the browser console for more details.", class_name="mb-4")
-            # Show current URL and other context
-            try:
-                from js import window
-                t.p(f"Current URL: {window.location.href}", class_name="mb-4")
-                t.p(f"Base path: {base_path}", class_name="mb-4")
-            except:
-                pass
 
-# Determine base path based on environment
-# Simple approach: check if we're on GitHub Pages
-base_path = ""
-try:
-    # For GitHub Pages: username.github.io/repo-name/
-    # The repository name becomes the base path
-    if "github.io" in window.location.hostname and window.location.hostname != "github.io":
-        # Extract the repository name from the URL
-        # For https://codegod100.github.io/bx/, the base path is "/bx"
-        path_parts = [part for part in window.location.pathname.split("/") if part]
-        if path_parts:
-            base_path = "/" + path_parts[0]
-    
-    print(f"[STARTUP] Detected base path: '{base_path}' (hostname: {window.location.hostname})")
-except Exception as e:
-    print(f"[STARTUP] Error detecting base path: {e}")
-    base_path = ""
-
+# Simple application setup with hash-based routing
 app = Application()
 app.error_page = CustomErrorPage
-app.install_router(Router, base_path=base_path, link_mode=Router.LINK_MODE_HTML5)
+app.install_router(Router, link_mode=Router.LINK_MODE_HASH)
 
 
 @app.page()
@@ -827,13 +803,13 @@ class HelloWorldPage(Page):
     def goto_test(self, event):
         """Navigate to the test route using client-side routing"""
         if self.router:
-            # Use the router's reverse method to generate the correct URL with base path
+            # Use the router's reverse method to generate the correct hash-based URL
             test_url = self.router.reverse("test")
             self.router.navigate_to_path(test_url)
         else:
             # Fallback to direct navigation if router is not available
             from js import window
-            window.location = f"{base_path}/test"
+            window.location = "#/test"
 
     def persist_state(self):
         try:
@@ -1036,7 +1012,7 @@ class TestPage(Page):
         else:
             # Fallback to direct navigation if router is not available
             from js import window
-            window.location = f"{base_path}/"
+            window.location = "#/"
     
     def populate(self):
         t.h1("Test Route Page", class_name="text-3xl font-bold mb-6 text-center text-catppuccin-mauve")
@@ -1045,39 +1021,8 @@ class TestPage(Page):
 
 
 print("[STARTUP] Mounting app to #app...")
-print(f"[STARTUP] Base path detected: '{base_path}'")
-# Check for redirect path from 404.html redirect (for GitHub Pages)
-redirect_path = None
 try:
-    from js import sessionStorage
-    redirect_path = sessionStorage.getItem('redirectPath')
-    print(f"[STARTUP] Redirect path from sessionStorage: '{redirect_path}'")
-    if redirect_path:
-        sessionStorage.removeItem('redirectPath')
-        # Remove the base path from the redirect path if present
-        if base_path and redirect_path.startswith(base_path):
-            redirect_path = redirect_path[len(base_path):]
-            if not redirect_path:
-                redirect_path = "/"
-        print(f"[STARTUP] Processed redirect path: '{redirect_path}'")
-except Exception as e:
-    print(f"[STARTUP] Error handling redirect path: {e}")
-
-# Mount the app with the redirect path if available
-try:
-    if redirect_path is not None:
-        print(f"[STARTUP] Mounting with redirect path: '{redirect_path}'")
-        app.mount("#app", path=redirect_path)
-    else:
-        print("[STARTUP] Mounting with default path")
-        # Print the current browser location for debugging
-        try:
-            from js import window
-            print(f"[STARTUP] Current browser location: {window.location.href}")
-            print(f"[STARTUP] Current pathname: {window.location.pathname}")
-        except:
-            pass
-        app.mount("#app")
+    app.mount("#app")
     print("[STARTUP] App mounted successfully")
 except Exception as e:
     print(f"[STARTUP] Failed to mount app: {e}")
