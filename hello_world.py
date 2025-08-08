@@ -759,9 +759,6 @@ class HelloWorldPage(Page):
                 "input_text": self.state.get("input_text", ""),
                 "todos": list(self.state.get("todos", [])),
                 "completed": list(self.state.get("completed", [])),
-                "stream_data": list(self.state.get("stream_data", [])),
-                "is_connected": self.state.get("is_connected", False),
-                "connection_status": self.state.get("connection_status", "Disconnected"),
             }
             if hasattr(window, "__opfs__"):
                 import json
