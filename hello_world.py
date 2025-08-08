@@ -1,11 +1,11 @@
 from puepy import Application, Page, t
 import pyscript
-import logging
 from js import window
+import asyncio
+import json
+import time
 
-# Set up logging
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
+print("[STARTUP] hello_world.py loaded, initializing application...")
 
 app = Application()
 
@@ -14,9 +14,11 @@ app = Application()
 class HelloWorldPage(Page):
     def initial(self):
         # Try to hydrate from OPFS-provided initial state
+        print("[INIT] Initializing page state...")
         try:
             import json
             raw = window.__INITIAL_STATE__
+            print(f"[INIT] Raw initial state: {raw}")
             if raw is not None:
                 # Handle both JsProxy with to_py() and plain Python str
                 try:
@@ -32,18 +34,619 @@ class HelloWorldPage(Page):
                             "count": 0,
                             "input_text": "",
                             "todos": [],
-                            "completed": []
+                            "completed": [],
+                            "stream_data": [],
+                            "is_connected": False,
+                            "connection_status": "Disconnected"
                         }
                         defaults.update({k: v for k, v in data.items() if k in defaults})
+                        print(f"[INIT] Loaded state from OPFS: {len(defaults)} properties")
                         return defaults
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[INIT] Failed to load OPFS state: {e}")
+        print("[INIT] Using default initial state")
         return {
             "count": 0,
             "input_text": "",
             "todos": [],
-            "completed": []
+            "completed": [],
+            "stream_data": [],
+            "is_connected": False,
+            "connection_status": "Disconnected"
         }
+    
+    def on_mount(self):
+        """Called when the page is mounted - auto-connect to stream"""
+        print("[MOUNT] Page mounted (on_mount), initializing stream connection...")
+        # Enable auto-reconnect loop and start
+        self._stream_should_run = True
+        print("[MOUNT] Stream enabled, calling auto_connect_stream()")
+        self.auto_connect_stream()
+    
+    def mounted(self):
+        """Alternative lifecycle method name - auto-connect to stream"""
+        print("[MOUNT] Page mounted (mounted), initializing stream connection...")
+        # Enable auto-reconnect loop and start
+        self._stream_should_run = True
+        print("[MOUNT] Stream enabled, calling auto_connect_stream()")
+        self.auto_connect_stream()
+    
+    def on_ready(self):
+        """Another possible lifecycle method name"""
+        print("[MOUNT] Page ready (on_ready), initializing stream connection...")
+        # Enable auto-reconnect loop and start
+        self._stream_should_run = True
+        print("[MOUNT] Stream enabled, calling auto_connect_stream()")
+        self.auto_connect_stream()
+    
+    def _ensure_stream_started(self):
+        """Idempotently start the stream if not already started"""
+        print("[ENSURE] _ensure_stream_started called")
+        if getattr(self, "_auto_started", False):
+            print("[ENSURE] Stream already started, skipping")
+            return
+        print("[ENSURE] Starting stream for first time...")
+        self._auto_started = True
+        self._stream_should_run = True
+        try:
+            asyncio.create_task(self.connect_to_stream())
+            print("[ENSURE] Stream connect task created successfully")
+        except Exception as e:
+            print(f"[ENSURE] Failed to create stream connect task: {e}")
+    
+    async def connect_to_stream(self):
+        """Connect to the streaming API endpoint using EventSource (SSE) if possible."""
+        try:
+            if hasattr(self, "_stream_should_run") and not self._stream_should_run:
+                print("[SSE] Stream connection cancelled - _stream_should_run is False")
+                return
+            # Avoid duplicate EventSource instances
+            if getattr(self, "_event_source", None) is not None:
+                print("[SSE] EventSource already exists, skipping duplicate connection")
+                return
+
+            print("[SSE] Starting stream connection...")
+            self.state["connection_status"] = "Connecting..."
+            self.state["is_connected"] = False
+
+            url = "https://trailbase.nandi.crabdance.com/api/records/v1/people/subscribe/*"
+            print(f"[SSE] Attempting to connect to: {url}")
+            
+            try:
+                print("[SSE] Creating new EventSource...")
+                es = window.EventSource.new(url)
+                self._event_source = es
+                print("[SSE] EventSource created successfully")
+
+                def on_open(e):
+                    print("[SSE] Connection opened successfully")
+                    print(f"[SSE] Event object: {e}")
+                    self.state["connection_status"] = "Connected (SSE)"
+                    self.state["is_connected"] = True
+
+                async def process_payload_text(payload_text: str):
+                    print(f"[SSE] Processing payload: {payload_text[:200]}{'...' if len(payload_text) > 200 else ''}")
+                    try:
+                        data_obj = json.loads(payload_text)
+                        print(f"[SSE] Successfully parsed JSON with {len(data_obj) if isinstance(data_obj, (dict, list)) else 'unknown'} items")
+                        # Only add JSON data to UI
+                        data_obj["timestamp"] = int(time.time() * 1000)  # Convert to milliseconds like Date.now()
+                        new_list = list(self.state.get("stream_data", [])) + [data_obj]
+                        if len(new_list) > 50:
+                            new_list = new_list[-50:]
+                        self.state["stream_data"] = new_list
+                        print(f"[SSE] Added JSON to stream data, total records: {len(new_list)}")
+                    except Exception as e:
+                        # Try to determine the type of non-JSON data
+                        data_type = "unknown"
+                        if not payload_text or payload_text.strip() == "":
+                            data_type = "empty/whitespace"
+                        elif payload_text.startswith("data:"):
+                            data_type = "SSE data line"
+                        elif payload_text.startswith("event:"):
+                            data_type = "SSE event line"
+                        elif payload_text.startswith("id:"):
+                            data_type = "SSE id line"
+                        elif payload_text.startswith("retry:"):
+                            data_type = "SSE retry line"
+                        elif payload_text.strip() == ":":
+                            data_type = "SSE comment/heartbeat"
+                        elif payload_text.startswith(":"):
+                            data_type = "SSE comment"
+                        elif payload_text.lower().startswith("<!doctype") or payload_text.lower().startswith("<html"):
+                            data_type = "HTML page"
+                        elif payload_text.startswith("<"):
+                            data_type = "XML/HTML fragment"
+                        elif "error" in payload_text.lower():
+                            data_type = "error message"
+                        elif "connect" in payload_text.lower():
+                            data_type = "connection message"
+                        elif payload_text.isdigit():
+                            data_type = "numeric string"
+                        else:
+                            data_type = "plain text"
+                        
+                        print(f"[SSE] Non-JSON payload [{data_type}] (not adding to UI): {payload_text}")
+                        print(f"[SSE] JSON parse error: {e}")
+
+                def on_message(e):
+                    print("[SSE] Message received from server")
+                    try:
+                        payload = e.data
+                        print(f"[SSE] Raw payload type: {type(payload)}")
+                        try:
+                            payload_text = payload.to_py() if hasattr(payload, "to_py") else payload
+                        except Exception as convert_ex:
+                            print(f"[SSE] Failed to convert payload: {convert_ex}")
+                            payload_text = payload
+                        if not isinstance(payload_text, str):
+                            payload_text = str(payload_text)
+                        print(f"[SSE] Converted payload length: {len(payload_text)} chars")
+                        # Schedule async processing to avoid blocking
+                        asyncio.create_task(process_payload_text(payload_text))
+                    except Exception as ex:
+                        print(f"[SSE] Error processing message: {ex}")
+
+                def on_error(e):
+                    print(f"[SSE] Connection error occurred: {e}")
+                    print(f"[SSE] Error type: {type(e)}")
+                    try:
+                        print(f"[SSE] Error details: readyState={getattr(e.target, 'readyState', 'unknown')}")
+                    except Exception:
+                        pass
+                    # Mark disconnected and cleanup
+                    self.state["is_connected"] = False
+                    self.state["connection_status"] = "Disconnected"
+                    try:
+                        if getattr(self, "_event_source", None) is not None:
+                            print("[SSE] Closing EventSource...")
+                            self._event_source.close()
+                    except Exception as close_ex:
+                        print(f"[SSE] Error closing EventSource: {close_ex}")
+                    self._event_source = None
+                    # Auto-reconnect if allowed
+                    if getattr(self, "_stream_should_run", True):
+                        print("[SSE] Scheduling reconnect in 2 seconds...")
+                        self.state["connection_status"] = "Reconnecting in 2s..."
+                        asyncio.create_task(self._reconnect_after_delay())
+                    else:
+                        print("[SSE] Auto-reconnect disabled")
+
+                print("[SSE] Setting up event handlers...")
+                es.onopen = on_open
+                es.onmessage = on_message
+                es.onerror = on_error
+                print("[SSE] Event handlers configured")
+                
+                # Set a timeout to fallback to fetch if SSE doesn't work
+                print("[SSE] Starting timeout fallback task...")
+                asyncio.create_task(self._sse_timeout_fallback())
+                
+            except Exception as sse_error:
+                print(f"[SSE] EventSource creation failed: {sse_error}")
+                # Fallback to fetch-based streaming
+                print("[SSE] Falling back to fetch-based streaming...")
+                await self._connect_with_fetch()
+                
+        except Exception as e:
+            print(f"[SSE] Overall connection error: {e}")
+            self.state["is_connected"] = False
+            self.state["connection_status"] = f"Error: {str(e)}"
+    
+    async def _sse_timeout_fallback(self):
+        """Timeout fallback if SSE doesn't receive data within 5 seconds"""
+        try:
+            print("[SSE] Starting 5-second timeout for SSE connection...")
+            await asyncio.sleep(5)
+            if not self.state.get("is_connected", False):
+                print("[SSE] Timeout reached and still not connected, falling back to fetch...")
+                await self._connect_with_fetch()
+            else:
+                print("[SSE] SSE connection successful, no fallback needed")
+        except Exception as e:
+            print(f"[SSE] Timeout fallback error: {e}")
+    
+    async def _connect_with_fetch(self):
+        """Fallback connection using fetch API"""
+        try:
+            print("[FETCH] Starting fetch-based streaming connection...")
+            self.state["connection_status"] = "Connecting (fetch)..."
+            
+            # Prepare AbortController for clean disconnects
+            print("[FETCH] Creating AbortController...")
+            controller = window.AbortController.new()
+            self._stream_controller = controller
+
+            # Build fetch options as native JS object
+            fetch_opts = window.Object.new()
+            fetch_opts.signal = controller.signal
+            print("[FETCH] Fetch options configured with abort signal")
+
+            url = "https://trailbase.nandi.crabdance.com/api/records/v1/people/subscribe/*"
+            print(f"[FETCH] Attempting fetch request to: {url}")
+            # Use fetch API to connect to the stream with abort signal
+            response = await window.fetch(url, fetch_opts)
+            print(f"[FETCH] Response received - status: {response.status}, ok: {response.ok}")
+
+            if response.ok:
+                print("[FETCH] Response OK, starting stream reading...")
+                self.state["connection_status"] = "Connected (fetch)"
+                self.state["is_connected"] = True
+
+                # Get the readable stream and a UTF-8 decoder
+                print("[FETCH] Getting response body reader...")
+                reader = response.body.getReader()
+                decoder = window.TextDecoder.new("utf-8")
+                print("[FETCH] TextDecoder initialized")
+
+                # Buffers for handling partial lines and SSE events
+                text_buffer = ""
+                sse_data_lines = []
+
+                async def handle_parsed_payload(payload_text: str):
+                    print(f"[FETCH] Processing payload: {payload_text[:200]}{'...' if len(payload_text) > 200 else ''}")
+                    # Try to parse NDJSON/SSE data string into JSON
+                    try:
+                        data_obj = json.loads(payload_text)
+                        print(f"[FETCH] Successfully parsed JSON with {len(data_obj) if isinstance(data_obj, (dict, list)) else 'unknown'} items")
+                        # Only add JSON data to UI
+                        data_obj["timestamp"] = int(time.time() * 1000)  # Convert to milliseconds like Date.now()
+                        new_list = list(self.state.get("stream_data", [])) + [data_obj]
+                        # Keep only last 50
+                        if len(new_list) > 50:
+                            new_list = new_list[-50:]
+                        self.state["stream_data"] = new_list
+                        print(f"[FETCH] Added JSON to stream data, total records: {len(new_list)}")
+                    except Exception as e:
+                        # Try to determine the type of non-JSON data
+                        data_type = "unknown"
+                        if not payload_text or payload_text.strip() == "":
+                            data_type = "empty/whitespace"
+                        elif payload_text.startswith("data:"):
+                            data_type = "SSE data line"
+                        elif payload_text.startswith("event:"):
+                            data_type = "SSE event line"
+                        elif payload_text.startswith("id:"):
+                            data_type = "SSE id line"
+                        elif payload_text.startswith("retry:"):
+                            data_type = "SSE retry line"
+                        elif payload_text.strip() == ":":
+                            data_type = "SSE comment/heartbeat"
+                        elif payload_text.startswith(":"):
+                            data_type = "SSE comment"
+                        elif payload_text.lower().startswith("<!doctype") or payload_text.lower().startswith("<html"):
+                            data_type = "HTML page"
+                        elif payload_text.startswith("<"):
+                            data_type = "XML/HTML fragment"
+                        elif "error" in payload_text.lower():
+                            data_type = "error message"
+                        elif "connect" in payload_text.lower():
+                            data_type = "connection message"
+                        elif payload_text.isdigit():
+                            data_type = "numeric string"
+                        else:
+                            data_type = "plain text"
+                        
+                        print(f"[FETCH] Non-JSON payload [{data_type}] (not adding to UI): {payload_text}")
+                        print(f"[FETCH] JSON parse error: {e}")
+
+                # Start reading the stream
+                print("[FETCH] Starting stream reading loop...")
+                while True:
+                    try:
+                        result = await reader.read()
+                        if result.done:
+                            print("[FETCH] Stream reading completed (done=True)")
+                            break
+
+                        # Decode the Uint8Array chunk using TextDecoder
+                        chunk_text = decoder.decode(result.value)
+                        if not isinstance(chunk_text, str):
+                            chunk_text = str(chunk_text)
+                        
+                        print(f"[FETCH] Received chunk: {len(chunk_text)} chars")
+                        text_buffer += chunk_text
+
+                        # Process complete lines; keep trailing partial in buffer
+                        while "\n" in text_buffer:
+                            line, text_buffer = text_buffer.split("\n", 1)
+                            line = line.rstrip("\r")
+
+                            # Handle SSE format: accumulate data: lines until blank line
+                            if line == "":
+                                if sse_data_lines:
+                                    payload = "\n".join(sse_data_lines)
+                                    print(f"[FETCH] Processing SSE event with {len(sse_data_lines)} data lines")
+                                    sse_data_lines = []
+                                    await handle_parsed_payload(payload)
+                                continue
+
+                            if line.startswith("data:"):
+                                data_content = line[5:].lstrip()
+                                print(f"[FETCH] SSE data line: {data_content[:100]}{'...' if len(data_content) > 100 else ''}")
+                                sse_data_lines.append(data_content)
+                                continue
+
+                            # Handle NDJSON/plain lines
+                            stripped = line.strip()
+                            if stripped:
+                                print(f"[FETCH] Processing NDJSON line: {stripped[:100]}{'...' if len(stripped) > 100 else ''}")
+                                await handle_parsed_payload(stripped)
+
+                    except Exception as e:
+                        print(f"[FETCH] Error during stream reading: {e}")
+                        # If aborted, exit quietly
+                        try:
+                            if getattr(self, "_stream_controller", None) and self._stream_controller.signal.aborted:
+                                print("[FETCH] Stream reading aborted by signal")
+                                break
+                        except Exception as abort_check_ex:
+                            print(f"[FETCH] Error checking abort signal: {abort_check_ex}")
+                        print("[FETCH] Breaking from stream reading loop due to error")
+                        break
+
+                # Flush remaining SSE data on stream end
+                if sse_data_lines:
+                    payload = "\n".join(sse_data_lines)
+                    print(f"[FETCH] Flushing remaining {len(sse_data_lines)} SSE data lines on stream end")
+                    sse_data_lines = []
+                    await handle_parsed_payload(payload)
+
+            else:
+                print(f"[FETCH] Response not OK - status: {response.status}")
+                self.state["connection_status"] = f"Connection failed: {response.status}"
+                # Fallback to polling
+                print("[FETCH] Falling back to polling...")
+                await self._connect_with_polling()
+
+        except Exception as e:
+            print(f"[FETCH] Connection error: {e}")
+            # If aborted before response
+            try:
+                if getattr(self, "_stream_controller", None) and self._stream_controller.signal.aborted:
+                    print("[FETCH] Connection was aborted")
+                    self.state["connection_status"] = "Disconnected"
+                else:
+                    print(f"[FETCH] Connection failed with error: {e}")
+                    self.state["connection_status"] = f"Error: {str(e)}"
+            except Exception as status_ex:
+                print(f"[FETCH] Error setting connection status: {status_ex}")
+                self.state["connection_status"] = f"Error: {str(e)}"
+            # Fallback to polling
+            print("[FETCH] Falling back to polling...")
+            await self._connect_with_polling()
+        finally:
+            print("[FETCH] Cleaning up fetch connection...")
+            self.state["is_connected"] = False
+            # Auto-reconnect unless user explicitly disconnected
+            try:
+                aborted = False
+                if getattr(self, "_stream_controller", None):
+                    aborted = bool(self._stream_controller.signal.aborted)
+                print(f"[FETCH] Connection aborted: {aborted}")
+            except Exception as abort_check_ex:
+                print(f"[FETCH] Error checking abort status: {abort_check_ex}")
+                aborted = False
+            if getattr(self, "_stream_should_run", True) and not aborted:
+                print("[FETCH] Scheduling reconnect in 2 seconds...")
+                self.state["connection_status"] = "Reconnecting in 2s..."
+                asyncio.create_task(self._reconnect_after_delay())
+            else:
+                print("[FETCH] Auto-reconnect disabled or connection was aborted")
+    
+    async def _connect_with_polling(self):
+        """Final fallback: simple polling approach"""
+        try:
+            print("[POLLING] Starting polling connection...")
+            self.state["connection_status"] = "Connected (polling)"
+            self.state["is_connected"] = True
+            
+            # Store last update time to detect changes
+            self._last_poll_time = 0
+            print("[POLLING] Initialized polling state")
+            
+            poll_count = 0
+            while getattr(self, "_stream_should_run", True):
+                poll_count += 1
+                try:
+                    # Poll the people endpoint to check for updates
+                    url = "https://trailbase.nandi.crabdance.com/api/records/v1/people"
+                    print(f"[POLLING] Poll #{poll_count}: requesting {url}")
+                    response = await window.fetch(url)
+                    
+                    if response.ok:
+                        print(f"[POLLING] Poll #{poll_count} successful - status: {response.status}")
+                        data = await response.json()
+                        print(f"[POLLING] Poll #{poll_count} received data: {len(data) if isinstance(data, (list, dict)) else 'unknown'} items")
+                        current_time = int(time.time() * 1000)  # Convert to milliseconds like Date.now()
+                        
+                        # Create a simple update event
+                        update_event = {
+                            "type": "poll_update",
+                            "timestamp": current_time,
+                            "data": data,
+                            "poll_time": current_time,
+                            "poll_number": poll_count
+                        }
+                        
+                        # Add to stream data
+                        new_list = list(self.state.get("stream_data", [])) + [update_event]
+                        if len(new_list) > 50:
+                            new_list = new_list[-50:]
+                        self.state["stream_data"] = new_list
+                        print(f"[POLLING] Poll #{poll_count} added to stream data, total records: {len(new_list)}")
+                        
+                    else:
+                        print(f"[POLLING] Poll #{poll_count} failed - status: {response.status}")
+                        
+                except Exception as e:
+                    print(f"[POLLING] Poll #{poll_count} error: {e}")
+                
+                # Wait 3 seconds before next poll
+                print(f"[POLLING] Poll #{poll_count} complete, waiting 3 seconds...")
+                await asyncio.sleep(3)
+                
+        except Exception as e:
+            print(f"[POLLING] Overall polling error: {e}")
+            self.state["is_connected"] = False
+            self.state["connection_status"] = f"Polling error: {str(e)}"
+
+    async def _reconnect_after_delay(self):
+        print("[RECONNECT] Starting 2-second delay before reconnect...")
+        try:
+            await asyncio.sleep(2)
+        except Exception as sleep_ex:
+            print(f"[RECONNECT] Sleep interrupted: {sleep_ex}")
+            return
+        if getattr(self, "_stream_should_run", True) and not self.state.get("is_connected", False):
+            print("[RECONNECT] Attempting to reconnect...")
+            try:
+                asyncio.create_task(self.connect_to_stream())
+                print("[RECONNECT] Reconnect task created successfully")
+            except Exception as e:
+                print(f"[RECONNECT] Failed to create reconnect task: {e}")
+        else:
+            print(f"[RECONNECT] Skipping reconnect - should_run: {getattr(self, '_stream_should_run', True)}, is_connected: {self.state.get('is_connected', False)}")
+    
+    def handle_connect_stream(self, event):
+        """Handle connect button click"""
+        # Use a more compatible approach for browser environment
+        try:
+            asyncio.create_task(self.connect_to_stream())
+        except Exception as e:
+            pass
+            self.state["connection_status"] = f"Failed to start: {str(e)}"
+    
+    def handle_disconnect_stream(self, event):
+        """Handle disconnect button click"""
+        try:
+            if hasattr(event, "preventDefault"):
+                event.preventDefault()
+            if hasattr(event, "stopPropagation"):
+                event.stopPropagation()
+        except Exception:
+            pass
+        # no logs
+        # Disable auto-reconnect loop and close SSE
+        try:
+            if getattr(self, "_event_source", None) is not None:
+                self._event_source.close()
+                pass
+        except Exception as e:
+            pass
+        self._event_source = None
+        # Disable auto-reconnect loop
+        self._stream_should_run = False
+        self.state["is_connected"] = False
+        self.state["connection_status"] = "Disconnected"
+        pass
+    
+    def handle_clear_stream_data(self, event):
+        """Clear the stream data"""
+        self.state["stream_data"] = []
+    
+    def handle_update_user_2_click(self, event):
+        """Schedule async update of user 2"""
+        try:
+            if hasattr(event, "preventDefault"):
+                event.preventDefault()
+            if hasattr(event, "stopPropagation"):
+                event.stopPropagation()
+        except Exception:
+            pass
+        # no logs
+        try:
+            asyncio.create_task(self.update_user_2(event))
+        except Exception as e:
+            pass
+
+    async def update_user_2(self, event):
+        """Update user ID 2 with random data"""
+        try:
+            import random
+            
+            pass
+            
+            # Generate random name and age
+            names = ["Alice", "Bob", "Charlie", "Diana", "Eve", "Frank", "Grace", "Henry", "Ivy", "Jack"]
+            random_name = random.choice(names)
+            random_age = random.randint(18, 80)
+            
+            pass
+            
+            # Create the user data as a JavaScript object
+            user_data = window.Object.new()
+            user_data.name = random_name
+            user_data.age = random_age
+            
+            # Create fetch options as JavaScript object
+            fetch_options = window.Object.new()
+            fetch_options.method = "PATCH"
+            fetch_options.headers = window.Object.new()
+            fetch_options.headers["Content-Type"] = "application/json"
+            fetch_options.body = window.JSON.stringify(user_data)
+            
+            pass
+            
+            # Send PATCH request to update user ID 2
+            response = await window.fetch(
+                "https://trailbase.nandi.crabdance.com/api/records/v1/people/2",
+                fetch_options
+            )
+            
+            if response.ok:
+                pass
+                # Force a polling update to see the change immediately
+                if getattr(self, "_stream_should_run", False):
+                    pass
+                    asyncio.create_task(self._force_polling_update())
+            else:
+                pass
+                
+        except Exception as e:
+            pass
+    
+    async def _force_polling_update(self):
+        """Force an immediate polling update to see the change"""
+        try:
+            print("[FORCE_POLL] Forcing immediate polling update")
+            response = await window.fetch("https://trailbase.nandi.crabdance.com/api/records/v1/people")
+            
+            if response.ok:
+                data = await response.json()
+                
+                # Log the forced update but don't add to UI
+                print(f"[FORCE_POLL] Forced polling update received {len(data) if isinstance(data, (list, dict)) else 'unknown'} records")
+                print(f"[FORCE_POLL] Data preview: {str(data)[:200]}{'...' if len(str(data)) > 200 else ''}")
+                
+        except Exception as e:
+            print(f"[FORCE_POLL] Forced polling error: {e}")
+    
+    def auto_connect_stream(self):
+        """Auto-connect to stream on page load"""
+        print("[AUTO] Auto-connect stream called")
+        # Defer a bit to avoid race with mount/render/event loop init
+        def _start_connect():
+            print("[AUTO] Auto-connect timeout fired; starting stream")
+            try:
+                print("[AUTO] Creating asyncio task for connect_to_stream...")
+                task = asyncio.create_task(self.connect_to_stream())
+                print(f"[AUTO] Connect task created successfully: {task}")
+            except Exception as e:
+                print(f"[AUTO] Failed to auto-connect stream: {e}")
+                self.state["connection_status"] = f"Auto-connect failed: {str(e)}"
+        
+        # Try setTimeout first, but also start immediately as backup
+        try:
+            print("[AUTO] Attempting to use setTimeout...")
+            window.setTimeout(_start_connect, 250)
+            print("[AUTO] Auto-connect scheduled for 250ms delay")
+        except Exception as e:
+            print(f"[AUTO] setTimeout not available or failed: {e}")
+        
+        # Also start immediately to ensure connection attempt
+        print("[AUTO] Starting connection immediately as well...")
+        _start_connect()
     
     def handle_increment(self, event):
         self.state["count"] += 1
@@ -70,41 +673,39 @@ class HelloWorldPage(Page):
             current_todos = self.state["todos"]
             self.state["todos"] = current_todos + [todo_text]
             self.state["input_text"] = ""
-            print(f"Todo '{todo_text}' added successfully. New todos: {self.state['todos']}")
+            pass
             self.persist_state()
         else:
-            print("Attempted to add empty todo")
+            pass
     
     def handle_remove_todo(self, event, index):
-        print(f"Attempting to remove todo at index: {index}")
-        print(f"Current todos: {self.state['todos']}")
+        pass
         try:
             if 0 <= index < len(self.state["todos"]):
                 current_todos = self.state["todos"]
                 self.state["todos"] = current_todos[:index] + current_todos[index+1:]
-                print(f"Todo at index {index} removed successfully. New todos: {self.state['todos']}")
+                pass
                 self.persist_state()
             else:
-                print(f"Index {index} out of range. Current todos: {self.state['todos']}")
+                pass
         except Exception as e:
-            logger.error(f"Error removing todo at index {index}: {str(e)}")
+            pass
 
     def handle_remove_completed(self, event, index):
-        print(f"Attempting to remove completed todo at index: {index}")
-        print(f"Current completed: {self.state['completed']}")
+        pass
         try:
             if 0 <= index < len(self.state["completed"]):
                 current_completed = self.state["completed"]
                 self.state["completed"] = current_completed[:index] + current_completed[index+1:]
-                print(f"Completed todo at index {index} removed successfully. New completed: {self.state['completed']}")
+                pass
                 self.persist_state()
             else:
-                print(f"Index {index} out of range. Current completed: {self.state['completed']}")
+                pass
         except Exception as e:
-            logger.error(f"Error removing completed todo at index {index}: {str(e)}")
+            pass
 
     def handle_complete_todo(self, event, index):
-        print(f"Completing todo at index: {index}")
+        pass
         try:
             if 0 <= index < len(self.state["todos"]):
                 todo = self.state["todos"][index]
@@ -113,7 +714,7 @@ class HelloWorldPage(Page):
                 new_completed = self.state["completed"] + [todo]
                 self.state["todos"] = new_todos
                 self.state["completed"] = new_completed
-                print(f"Moved '{todo}' to completed.")
+                pass
                 self.persist_state()
                 # Trigger confetti if available
                 try:
@@ -121,12 +722,12 @@ class HelloWorldPage(Page):
                         # Burst confetti from center
                         window.__confetti__.call(None, {"particleCount": 120, "spread": 70, "origin": {"y": 0.6}})
                 except Exception as e2:
-                    logger.debug(f"Confetti not available or failed: {e2}")
+                    pass
         except Exception as e:
-            logger.error(f"Error completing todo at index {index}: {str(e)}")
+            pass
 
     def handle_uncomplete_todo(self, event, index):
-        print(f"Restoring completed todo at index: {index}")
+        pass
         try:
             if 0 <= index < len(self.state["completed"]):
                 todo = self.state["completed"][index]
@@ -134,10 +735,10 @@ class HelloWorldPage(Page):
                 new_todos = self.state["todos"] + [todo]
                 self.state["completed"] = new_completed
                 self.state["todos"] = new_todos
-                print(f"Restored '{todo}' to todos.")
+                pass
                 self.persist_state()
         except Exception as e:
-            logger.error(f"Error restoring completed todo at index {index}: {str(e)}")
+            pass
 
     def persist_state(self):
         try:
@@ -146,13 +747,16 @@ class HelloWorldPage(Page):
                 "input_text": self.state.get("input_text", ""),
                 "todos": list(self.state.get("todos", [])),
                 "completed": list(self.state.get("completed", [])),
+                "stream_data": list(self.state.get("stream_data", [])),
+                "is_connected": self.state.get("is_connected", False),
+                "connection_status": self.state.get("connection_status", "Disconnected"),
             }
             if hasattr(window, "__opfs__"):
                 import json
                 # Pass JSON string to avoid proxy conversion issues
                 window.__opfs__.saveState(json.dumps(state_snapshot))
         except Exception as e:
-            logger.debug(f"persist_state failed: {e}")
+            pass
     
     def populate(self):
         t.h1("Hello, World!", class_name="text-3xl font-bold mb-6 text-center", style="color: var(--catppuccin-mauve);")
@@ -244,5 +848,127 @@ class HelloWorldPage(Page):
                                     style="background-color: var(--catppuccin-red); color: var(--catppuccin-crust);"
                                 )
 
+        # Streaming API section
+        with t.div(class_name="m-4 p-4 rounded-lg border", style="background-color: var(--catppuccin-surface0); border-color: var(--catppuccin-surface2);"):
+            t.h2("Live Stream Data", class_name="text-xl font-semibold mb-3", style="color: var(--catppuccin-blue);")
+            
+            # Connection status and controls
+            with t.div(class_name="mb-4"):
+                t.p(f"Status: {self.state['connection_status']}", 
+                    class_name="mb-2", 
+                    style=f"color: {'var(--catppuccin-green)' if self.state['is_connected'] else 'var(--catppuccin-red)'};")
+                
+                with t.div(class_name="flex gap-2 flex-wrap"):
+                    # Update User 2 button
+                    t.button(
+                        "Update User 2 (Random Data)",
+                        on_click=self.handle_update_user_2_click,
+                        class_name="px-4 py-2 font-medium rounded-md transition-colors",
+                        style="background-color: var(--catppuccin-blue); color: var(--catppuccin-crust);",
+                        key="btn-update-user"
+                    )
+                    
+                    # Disconnect button (only show if connected)
+                    if self.state["is_connected"]:
+                        t.button(
+                            "Disconnect",
+                            on_click=self.handle_disconnect_stream,
+                            class_name="px-4 py-2 font-medium rounded-md transition-colors",
+                            style="background-color: var(--catppuccin-red); color: var(--catppuccin-crust);",
+                            key="btn-disconnect"
+                        )
+                    
+                    # Clear data button
+                    if len(self.state["stream_data"]) > 0:
+                        t.button(
+                            "Clear Data",
+                            on_click=self.handle_clear_stream_data,
+                            class_name="px-4 py-2 font-medium rounded-md transition-colors",
+                            style="background-color: var(--catppuccin-mauve); color: var(--catppuccin-crust);",
+                            key="btn-clear-data"
+                        )
+            
+            # Stream data display
+            if len(self.state["stream_data"]) == 0:
+                t.p("No stream data received yet. Stream auto-connects on page load. Click 'Update User 2' to generate test data.", 
+                    style="color: var(--catppuccin-subtext0);")
+            else:
+                t.p(f"Received {len(self.state['stream_data'])} records:", 
+                    class_name="mb-3", 
+                    style="color: var(--catppuccin-text);")
+                
+                # Display the most recent data first
+                for i, data in enumerate(reversed(self.state["stream_data"])):
+                    record_number = len(self.state['stream_data']) - i
+                    # Create unique key for each record to prevent rendering issues
+                    record_key = f"record-{record_number}-{data.get('timestamp', i)}"
+                    with t.div(class_name="mb-3 p-3 rounded border", style="background-color: var(--catppuccin-surface1); border-color: var(--catppuccin-surface2);", key=record_key):
+                        t.p(f"Record #{record_number}",
+                            class_name="font-semibold mb-2",
+                            style="color: var(--catppuccin-blue);")
+                        
+                        # Display timestamp if available
+                        if "timestamp" in data:
+                            try:
+                                # Handle both string timestamps and numeric timestamps
+                                if isinstance(data["timestamp"], str):
+                                    # If it's a string, try to parse it as a number
+                                    timestamp_num = float(data["timestamp"])
+                                else:
+                                    timestamp_num = data["timestamp"]
+                                
+                                timestamp = window.Date(timestamp_num).toLocaleString()
+                                t.p(f"Time: {timestamp}", 
+                                    class_name="text-sm mb-2", 
+                                    style="color: var(--catppuccin-subtext0);")
+                            except Exception as e:
+                                # Fallback to showing the raw timestamp
+                                t.p(f"Time: {data['timestamp']}", 
+                                    class_name="text-sm mb-2", 
+                                    style="color: var(--catppuccin-subtext0);")
+                        
+                        # Display the data as formatted JSON
+                        try:
+                            formatted_json = json.dumps(data, indent=2)
+                            t.pre(formatted_json, 
+                                  class_name="text-sm overflow-x-auto", 
+                                  style="color: var(--catppuccin-text); background-color: var(--catppuccin-crust); padding: 0.5rem; border-radius: 0.25rem;")
+                        except Exception:
+                            t.p(str(data), 
+                                class_name="text-sm", 
+                                style="color: var(--catppuccin-text);")
 
+
+print("[STARTUP] Mounting app to #app...")
 app.mount("#app")
+print("[STARTUP] App mounted successfully")
+
+# Force auto-connect since on_mount might not be called
+print("[STARTUP] Manually triggering auto-connect...")
+try:
+    # Get the page instance and call auto_connect
+    if hasattr(app, 'page_instance'):
+        app.page_instance.auto_connect_stream()
+    else:
+        # Try to access the page through app's internal structure
+        for page in app.pages:
+            if hasattr(page, 'auto_connect_stream'):
+                page.auto_connect_stream()
+                break
+except Exception as e:
+    print(f"[STARTUP] Failed to manually trigger auto-connect: {e}")
+    # Try a different approach - create a delayed task
+    try:
+        def delayed_connect():
+            print("[STARTUP] Delayed connect attempting...")
+            # This will run after the page is fully initialized
+            import asyncio
+            from js import document
+            app_element = document.getElementById("app")
+            if app_element and hasattr(window, 'app_page_instance'):
+                window.app_page_instance.auto_connect_stream()
+        
+        window.setTimeout(delayed_connect, 1000)
+        print("[STARTUP] Scheduled delayed auto-connect")
+    except Exception as e2:
+        print(f"[STARTUP] Failed to schedule delayed auto-connect: {e2}")
