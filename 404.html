@@ -4,10 +4,23 @@
     <meta charset="utf-8">
     <title>Redirecting...</title>
     <script>
+      // Determine base path dynamically
+      var basePath = "";
+      try {
+        // Extract base path from the current URL
+        // For GitHub Pages: username.github.io/repo-name/...
+        var pathParts = location.pathname.split("/");
+        if (pathParts.length > 1 && pathParts[1]) {
+          basePath = "/" + pathParts[1];
+        }
+      } catch (e) {
+        // Fallback to empty base path
+      }
+      
       // Store the requested path in sessionStorage
       sessionStorage.setItem('redirectPath', location.pathname + location.search + location.hash);
       // Redirect to the main index.html
-      location.replace('/');
+      location.replace(basePath + '/');
     </script>
   </head>
   <body>

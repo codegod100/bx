@@ -8,8 +8,36 @@ import time
 
 print("[STARTUP] hello_world.py loaded, initializing application...")
 
+# Custom error page that handles None errors better
+class CustomErrorPage(Page):
+    props = ["error"]
+
+    def populate(self):
+        t.h1("Application Error", class_name="text-3xl font-bold mb-6 text-center text-red-500")
+        if self.error:
+            t.p(f"Error: {str(self.error)}", class_name="mb-4")
+            t.pre(str(self.error), class_name="bg-gray-100 p-4 rounded")
+        else:
+            t.p("An unknown error occurred.", class_name="mb-4")
+            t.p("Please check the browser console for more details.", class_name="mb-4")
+
+# Determine base path based on environment
+# Check if we're on GitHub Pages (or similar platform with subpath deployment)
+base_path = ""
+try:
+    # If the current path contains a subpath that's not just "/", we might be in a subfolder deployment
+    # This works for GitHub Pages where repos are served at username.github.io/repo-name
+    if window.location.pathname.count("/") > 1:
+        # Extract the first path segment as the base path
+        path_parts = window.location.pathname.split("/")
+        if len(path_parts) > 1 and path_parts[1]:
+            base_path = "/" + path_parts[1]
+except:
+    pass
+
 app = Application()
-app.install_router(Router, link_mode=Router.LINK_MODE_HTML5)
+app.error_page = CustomErrorPage
+app.install_router(Router, base_path=base_path, link_mode=Router.LINK_MODE_HTML5)
 
 
 @app.page()
@@ -772,11 +800,13 @@ class HelloWorldPage(Page):
     def goto_test(self, event):
         """Navigate to the test route using client-side routing"""
         if self.router:
-            self.router.navigate_to_path("/test")
+            # Use the router's reverse method to generate the correct URL with base path
+            test_url = self.router.reverse("test")
+            self.router.navigate_to_path(test_url)
         else:
             # Fallback to direct navigation if router is not available
             from js import window
-            window.location = "/test"
+            window.location = f"{base_path}/test"
 
     def persist_state(self):
         try:
@@ -968,16 +998,18 @@ class HelloWorldPage(Page):
                                 class_name="text-sm break-words text-catppuccin-text")
 
 
+# Define routes without base path in the decorator
 @app.page("/test", name="test")
 class TestPage(Page):
     def goto_home(self, event):
         """Navigate to the home route using client-side routing"""
         if self.router:
+            # Navigate to the default page
             self.router.navigate_to_path("/")
         else:
             # Fallback to direct navigation if router is not available
             from js import window
-            window.location = "/"
+            window.location = f"{base_path}/"
     
     def populate(self):
         t.h1("Test Route Page", class_name="text-3xl font-bold mb-6 text-center text-catppuccin-mauve")
@@ -993,15 +1025,23 @@ try:
     redirect_path = sessionStorage.getItem('redirectPath')
     if redirect_path:
         sessionStorage.removeItem('redirectPath')
+        # Remove the base path from the redirect path if present
+        if base_path and redirect_path.startswith(base_path):
+            redirect_path = redirect_path[len(base_path):]
+            if not redirect_path:
+                redirect_path = "/"
 except:
     pass
 
 # Mount the app with the redirect path if available
-if redirect_path:
-    app.mount("#app", path=redirect_path)
-else:
-    app.mount("#app")
-print("[STARTUP] App mounted successfully")
+try:
+    if redirect_path:
+        app.mount("#app", path=redirect_path)
+    else:
+        app.mount("#app")
+    print("[STARTUP] App mounted successfully")
+except Exception as e:
+    print(f"[STARTUP] Failed to mount app: {e}")
 
 # Force auto-connect since on_mount might not be called
 print("[STARTUP] Manually triggering auto-connect...")
@@ -1009,12 +1049,6 @@ try:
     # Get the page instance and call auto_connect
     if hasattr(app, 'page_instance'):
         app.page_instance.auto_connect_stream()
-    else:
-        # Try to access the page through app's internal structure
-        for page in app.pages:
-            if hasattr(page, 'auto_connect_stream'):
-                page.auto_connect_stream()
-                break
 except Exception as e:
     print(f"[STARTUP] Failed to manually trigger auto-connect: {e}")
     # Try a different approach - create a delayed task
