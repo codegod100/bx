@@ -142,4 +142,8 @@ body {
   word-wrap: break-word;
   white-space: pre-wrap;
   max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
+  hyphens: auto;
 }

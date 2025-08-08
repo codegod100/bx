@@ -60,9 +60,11 @@
     </script>
 </head>
 
-<body class="min-h-screen" style="background-color: var(--catppuccin-base); color: var(--catppuccin-text);">
-    <div id="app" class="flex justify-center items-center min-h-screen">
-        <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2" style="border-color: var(--catppuccin-mauve);"></div>
+<body class="min-h-screen max-w-4xl mx-auto px-4" style="background-color: var(--catppuccin-base); color: var(--catppuccin-text); width: 100%; box-sizing: border-box;">
+    <div id="app" class="min-h-screen">
+        <div class="flex justify-center items-center min-h-screen">
+            <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2" style="border-color: var(--catppuccin-mauve);"></div>
+        </div>
     </div>
     <script type="mpy" src="./hello_world.py" config="./pyscript.json"></script>
 </body>
